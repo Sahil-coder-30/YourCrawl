@@ -232,7 +232,6 @@ export const crawlAndScan = async (url) => {
 
     return {
         success: true,
-        crawl: crawlResult.data,
-        scan: scanResult.data
+        scan: JSON.stringify(scanResult.data)
     };
 };

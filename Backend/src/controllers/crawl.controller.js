@@ -31,7 +31,8 @@ export const crawlUrl = async (req, res) => {
 
         return res.status(200).json({
             success: true,
-            report: result.report   // Markdown string → pipe straight into react-markdown
+            report: result.report ,   // Markdown string → pipe straight into react-markdown
+            crawlResult: result.crawlResult
         });
 
     } catch (error) {
