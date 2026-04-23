@@ -1,9 +1,14 @@
 import { Router } from 'express';
-import { crawlUrl } from '../controllers/crawl.controller.js';
+import { crawlUrl, getAuditHistory, getAuditById } from '../controllers/crawl.controller.js';
+import { identifyUser } from '../middlewares/auth.middleware.js';
 
 const router = Router();
 
-// Define the crawl route endpoint
-router.post('/crawl',crawlUrl );
+// All crawl routes require authentication
+router.use(identifyUser);
+
+router.post('/crawl',              crawlUrl);
+router.get('/crawl/history',       getAuditHistory);
+router.get('/crawl/history/:id',   getAuditById);
 
 export default router;
