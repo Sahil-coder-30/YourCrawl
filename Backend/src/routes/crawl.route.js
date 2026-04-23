@@ -4,6 +4,6 @@ import { crawlUrl } from '../controllers/crawl.controller.js';
 const router = Router();
 
 // Define the crawl route endpoint
-router.post('/crawl', crawlUrl);
+router.post('/crawl',crawlUrl );
 
 export default router;
