@@ -129,7 +129,7 @@ export const setPasswordThunk = createAsyncThunk(
 
 const initialState = {
   user: null,
-  isAuthenticated: false,
+  isAuthenticated: localStorage.getItem("hasLoggedIn") === "true",
 
   // granular loading flags per operation
   loading: {
@@ -204,6 +204,7 @@ const authSlice = createSlice({
       .addCase(loginThunk.fulfilled, (state) => {
         state.loading.login = false;
         state.isAuthenticated = true;
+        localStorage.setItem("hasLoggedIn", "true");
       })
       .addCase(loginThunk.rejected, (state, action) => {
         state.loading.login = false;
@@ -219,6 +220,7 @@ const authSlice = createSlice({
         state.loading.logout = false;
         state.user = null;
         state.isAuthenticated = false;
+        localStorage.removeItem("hasLoggedIn");
       })
       .addCase(logoutThunk.rejected, (state, action) => {
         state.loading.logout = false;
@@ -235,11 +237,13 @@ const authSlice = createSlice({
         state.loading.getMe = false;
         state.user = action.payload;
         state.isAuthenticated = true;
+        localStorage.setItem("hasLoggedIn", "true");
       })
       .addCase(getMeThunk.rejected, (state, action) => {
         state.loading.getMe = false;
         state.isAuthenticated = false;
         state.error.getMe = action.payload;
+        localStorage.removeItem("hasLoggedIn");
       });
 
     // ── Verify OTP ────────────────────────────────────────────────────────

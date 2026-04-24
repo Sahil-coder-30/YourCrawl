@@ -24,10 +24,11 @@ import Compliance from "../features/compliance/components/Compliance";
 import Audits from "../features/audits/components/Audits";
 import Profile from "../features/profile/components/Profile";
 import WelcomeAnimation from "../components/common/WelcomeAnimation/WelcomeAnimation";
+import GlobalAssistantOverlay from "../features/aiAssistant/components/GlobalAssistantOverlay";
 
 function App() {
   const [animDone, setAnimDone] = useState(() => {
-    return sessionStorage.getItem('welcomeAnimDone') === 'true';
+    return sessionStorage.getItem('welcomeAnimDone') === 'true' || localStorage.getItem('hasLoggedIn') === 'true';
   });
 
   const handleAnimComplete = () => {
@@ -61,6 +62,7 @@ function App() {
 
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
+        <GlobalAssistantOverlay />
         <Toaster position="top-right" richColors closeButton />
       </BrowserRouter>
       </div>

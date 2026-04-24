@@ -50,21 +50,14 @@ export default function TopNav({ showSearch = true }) {
           </Link>
 
           <nav className="hidden items-center gap-8 md:flex">
-            {navItems.map((item) => (
+            {isAuthenticated && navItems.map((item) => (
               <NavLink
                 key={item.to}
-                to={isAuthenticated ? item.to : "#"}
-                onClick={(e) => {
-                  if (!isAuthenticated) {
-                    e.preventDefault();
-                  }
-                }}
+                to={item.to}
                 data-testid={`nav-${item.label.toLowerCase()}`}
                 className={({ isActive }) =>
                   `relative text-[14px] font-medium transition-colors ${
-                    !isAuthenticated
-                      ? "text-slate-400 cursor-not-allowed opacity-60"
-                      : isActive
+                    isActive
                       ? "text-amber-700"
                       : "text-slate-600 hover:text-slate-900"
                   }`
@@ -73,7 +66,7 @@ export default function TopNav({ showSearch = true }) {
                 {({ isActive }) => (
                   <>
                     {item.label}
-                    {isActive && isAuthenticated && (
+                    {isActive && (
                       <span className="absolute -bottom-[21px] left-0 right-0 h-[2px] rounded-full bg-amber-600" />
                     )}
                   </>
