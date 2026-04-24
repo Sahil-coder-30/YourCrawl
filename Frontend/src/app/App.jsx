@@ -1,3 +1,4 @@
+import { useState } from "react";
 import "./App.scss";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { Toaster } from "sonner";
@@ -22,11 +23,23 @@ import Roadmap from "../features/roadmap/components/Roadmap";
 import Compliance from "../features/compliance/components/Compliance";
 import Audits from "../features/audits/components/Audits";
 import Profile from "../features/profile/components/Profile";
+import WelcomeAnimation from "../components/common/WelcomeAnimation/WelcomeAnimation";
 
 function App() {
+  const [animDone, setAnimDone] = useState(() => {
+    return sessionStorage.getItem('welcomeAnimDone') === 'true';
+  });
+
+  const handleAnimComplete = () => {
+    setAnimDone(true);
+    sessionStorage.setItem('welcomeAnimDone', 'true');
+  };
+
   return (
     <div className="App">
-      <BrowserRouter>
+      {!animDone && <WelcomeAnimation onComplete={handleAnimComplete} />}
+      <div style={{ opacity: animDone ? 1 : 0, transition: "opacity 0.5s ease-in", pointerEvents: animDone ? "auto" : "none" }}>
+        <BrowserRouter>
         <Routes>
           {/* ── Public ─────────────────────────────────────── */}
           <Route path="/" element={<Landing />} />
@@ -50,6 +63,7 @@ function App() {
         </Routes>
         <Toaster position="top-right" richColors closeButton />
       </BrowserRouter>
+      </div>
     </div>
   );
 }
