@@ -7,6 +7,7 @@ import {
   ShieldCheck,
 } from "lucide-react";
 import AvaranaLogo from "../../common/AvaranaLogo/AvaranaLogo";
+import { useGetMe } from "../../../features/auth/hooks/useAuth";
 import "./Sidebar.scss";
 
 const links = [
@@ -18,6 +19,8 @@ const links = [
 ];
 
 export default function Sidebar({ footer }) {
+  const { isAuthenticated } = useGetMe();
+
   return (
     <aside data-testid="sidebar" className="sidebar">
       <div>
@@ -28,7 +31,7 @@ export default function Sidebar({ footer }) {
 
         <nav className="sidebar__nav">
           {/* eslint-disable-next-line no-unused-vars */}
-          {links.map(({ label, to, icon: Icon, id }) => (
+          {isAuthenticated && links.map(({ label, to, icon: Icon, id }) => (
             <NavLink
               key={to}
               to={to}

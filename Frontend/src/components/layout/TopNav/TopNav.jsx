@@ -50,7 +50,7 @@ export default function TopNav({ showSearch = true }) {
           </Link>
 
           <nav className="hidden items-center gap-8 md:flex">
-            {navItems.map((item) => (
+            {isAuthenticated && navItems.map((item) => (
               <NavLink
                 key={item.to}
                 to={item.to}

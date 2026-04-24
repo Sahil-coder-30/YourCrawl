@@ -1,9 +1,9 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { useSelector } from "react-redux";
+import { useSelector, useDispatch } from "react-redux";
 import {
   Sparkles, Search, Download, AlertTriangle, Clock, AlertCircle,
-  ChevronDown, ChevronUp, Eye, ShieldAlert, FileWarning, BookOpen,
+  ChevronDown, ChevronUp, Eye, ShieldAlert, FileWarning, BookOpen, Bell,
 } from "lucide-react";
 import AppLayout from "../../../components/layout/AppLayout/AppLayout";
 import { Input } from "../../../components/common/input";
@@ -17,6 +17,7 @@ import {
   selectAuditStatus,
   selectExecutiveSummary,
 } from "../../audit/state/audit.slice";
+import { openAssistant } from "../../aiAssistant/chat.slice";
 
 const severityStyles = {
   CRITICAL: "bg-rose-100 text-rose-700",
@@ -155,6 +156,7 @@ function FindingDetail({ finding }) {
 export default function Analysis() {
   const [query, setQuery] = useState("");
   const navigate = useNavigate();
+  const dispatch = useDispatch();
 
   const findings      = useSelector(selectAnalysisFindings);
   const aiInsight     = useSelector(selectAiInsight);
@@ -176,7 +178,7 @@ export default function Analysis() {
       {/* Header */}
       <div className="flex items-start justify-between">
         <div className="flex items-center gap-4">
-          <h1 className="text-[32px] font-extrabold tracking-tight text-slate-900">
+          <h1 className="text-[32px] font-extrabold tracking-tight text-slate-900 flex items-center gap-2">
             Analysis Findings
           </h1>
           <span className="inline-flex items-center gap-1.5 rounded-md bg-blue-50 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wider text-blue-700">
@@ -185,6 +187,18 @@ export default function Analysis() {
           </span>
         </div>
         <div className="flex items-center gap-3">
+          {/* Assistant Button */}
+          <div className="flex rounded-lg bg-slate-100 p-1 mr-2">
+            <button
+              onClick={() => dispatch(openAssistant())}
+              className="flex items-center gap-1.5 px-4 py-1.5 text-[13px] font-semibold rounded-md text-slate-500 hover:text-slate-700 hover:bg-slate-200 transition-all"
+              title="Open AI Assistant Overlay"
+            >
+              <Sparkles className="h-3.5 w-3.5" />
+              Open Assistant
+            </button>
+          </div>
+
           <div className="relative">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
             <Input
