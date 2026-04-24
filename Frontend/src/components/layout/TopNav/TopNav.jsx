@@ -71,6 +71,22 @@ export default function TopNav({ showSearch = true }) {
               />
             </div>
           )}
+          <div className="hidden items-center gap-2 sm:flex">
+            <Link
+              to="/login"
+              data-testid="topnav-login"
+              className="inline-flex h-9 items-center justify-center rounded-lg border border-slate-200 bg-white px-3 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
+            >
+              Login
+            </Link>
+            <Link
+              to="/register"
+              data-testid="topnav-register"
+              className="inline-flex h-9 items-center justify-center rounded-lg bg-amber-600 px-3 text-sm font-medium text-white transition hover:bg-amber-700"
+            >
+              Register
+            </Link>
+          </div>
           <button
             data-testid="notifications-btn"
             className="relative grid h-9 w-9 place-items-center rounded-full text-slate-500 transition hover:bg-slate-100 hover:text-slate-900"
@@ -78,13 +94,13 @@ export default function TopNav({ showSearch = true }) {
             <Bell className="h-[18px] w-[18px]" />
             <span className="absolute right-2 top-2 h-[7px] w-[7px] rounded-full bg-rose-500" />
           </button>
-          <div
+          {/* <div
             data-testid="user-avatar"
             className="grid h-9 w-9 place-items-center overflow-hidden rounded-full text-xs font-semibold text-white ring-2 ring-white"
             style={{ background: "linear-gradient(135deg, #1A102E, #2D1B6E)" }}
           >
             AC
-          </div>
+          </div> */}
         </div>
       </div>
     </header>
