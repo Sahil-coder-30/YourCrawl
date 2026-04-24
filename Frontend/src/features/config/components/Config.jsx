@@ -99,10 +99,11 @@ export default function Config() {
         });
         navigate("/dashboard");
       } else {
-        toast.error(
-          resultAction.payload || "Audit failed — check the console for details",
-          { id: "audit-toast" }
-        );
+        const errMsg =
+          typeof resultAction.payload === "string"
+            ? resultAction.payload
+            : resultAction.payload?.message || "Audit failed — check the console for details";
+        toast.error(errMsg, { id: "audit-toast" });
       }
     } catch (err) {
       toast.error("Unexpected error during audit", { id: "audit-toast" });

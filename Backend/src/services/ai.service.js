@@ -212,7 +212,11 @@ export const runCrawlAgent = async (url) => {
         const crawlResult = await crawlAndScan(url);
 
         if (!crawlResult.success) {
-            return { success: false, error: crawlResult.error || 'Crawl failed' };
+            return {
+                success: false,
+                error: crawlResult.error || 'Crawl failed',
+                errorCode: crawlResult.errorCode || 'CRAWL_ERROR',
+            };
         }
 
         // Step 2: Parse and clean the data

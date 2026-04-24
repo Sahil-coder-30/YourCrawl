@@ -1,12 +1,32 @@
 import { runCrawlAgent } from "../services/ai.service.js";
 import AuditReport from "../models/auditReport.model.js";
 
-// ─── POST /api/crawl ──────────────────────────────────────────────────────────
-/**
- * Run a full crawl → ML scan → AI analysis pipeline.
- * Saves the result to the database against the authenticated user.
- * Returns the structured auditData JSON.
- */
+// ─── Error Code → HTTP Status Mapping ─────────────────────────────────────────
+
+const mapErrorCodeToStatus = (errorCode) => {
+    switch (errorCode) {
+        case 'INVALID_URL':
+            return 422; // Unprocessable Entity — client sent a bad URL
+        case 'DNS_RESOLUTION_FAILED':
+        case 'TOO_MANY_REDIRECTS':
+        case 'SSL_ERROR':
+            return 422; // The target URL itself is problematic
+        case 'CONNECTION_REFUSED':
+        case 'CONNECTION_TIMEOUT':
+        case 'NAVIGATION_TIMEOUT':
+        case 'REQUEST_ABORTED':
+            return 502; // Bad Gateway — the target site is the problem
+        case 'BROWSER_CRASHED':
+            return 503; // Service Unavailable — our browser is broken
+        case 'ML_UNAVAILABLE':
+            return 503; // ML microservice isn't running
+        case 'ML_TIMEOUT':
+        case 'ML_ERROR':
+            return 502; // Bad Gateway — the ML service failed
+        default:
+            return 500; // Catch-all
+    }
+};
 export const crawlUrl = async (req, res) => {
     try {
         const { url } = req.body;
@@ -21,7 +41,13 @@ export const crawlUrl = async (req, res) => {
         const result = await runCrawlAgent(url);
 
         if (!result.success) {
-            return res.status(500).json({ success: false, error: result.error });
+            // Map errorCode to an appropriate HTTP status
+            const httpStatus = mapErrorCodeToStatus(result.errorCode);
+            return res.status(httpStatus).json({
+                success: false,
+                error: result.error,
+                errorCode: result.errorCode || 'UNKNOWN',
+            });
         }
 
         const { auditData } = result;
@@ -56,6 +82,7 @@ export const crawlUrl = async (req, res) => {
         return res.status(500).json({
             success: false,
             error: "Internal server error",
+            errorCode: 'INTERNAL_ERROR',
             details: error.message,
         });
     }

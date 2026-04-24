@@ -20,7 +20,13 @@ export const runAudit = createAsyncThunk(
       const response = await api.post("/crawl", { url });
       return response.data; // { success, reportId, auditData }
     } catch (err) {
-      return rejectWithValue(err.message || "Audit failed");
+      // Prefer the server's descriptive error message over Axios' generic one
+      const serverMessage = err.response?.data?.error;
+      const errorCode     = err.response?.data?.errorCode;
+      return rejectWithValue({
+        message: serverMessage || err.message || "Audit failed",
+        errorCode: errorCode || "UNKNOWN",
+      });
     }
   }
 );
@@ -66,6 +72,7 @@ const auditSlice = createSlice({
     /** run-audit lifecycle */
     status: "idle", // idle | loading | succeeded | failed
     error: null,
+    errorCode: null,
 
     /** History list lifecycle */
     history: [],           // array of { id, target, framework, status, findings, risk, date }
@@ -80,6 +87,7 @@ const auditSlice = createSlice({
       state.lastUrl = null;
       state.status = "idle";
       state.error = null;
+      state.errorCode = null;
     },
   },
 
@@ -89,6 +97,7 @@ const auditSlice = createSlice({
       .addCase(runAudit.pending, (state, action) => {
         state.status = "loading";
         state.error = null;
+        state.errorCode = null;
         state.lastUrl = action.meta.arg;
       })
       .addCase(runAudit.fulfilled, (state, action) => {
@@ -98,7 +107,8 @@ const auditSlice = createSlice({
       })
       .addCase(runAudit.rejected, (state, action) => {
         state.status = "failed";
-        state.error = action.payload;
+        state.error = action.payload?.message || action.payload || "Audit failed";
+        state.errorCode = action.payload?.errorCode || null;
       });
 
     // ── fetchAuditHistory ─────────────────────────────────────────────────
@@ -141,6 +151,7 @@ export const { clearAudit } = auditSlice.actions;
 export const selectAuditData            = (s) => s.audit.auditData;
 export const selectAuditStatus          = (s) => s.audit.status;
 export const selectAuditError           = (s) => s.audit.error;
+export const selectAuditErrorCode       = (s) => s.audit.errorCode;
 export const selectStatCards            = (s) => s.audit.auditData?.stat_cards;
 export const selectAnalysisFindings     = (s) => s.audit.auditData?.analysis_findings    ?? [];
 export const selectRemediationTasks     = (s) => s.audit.auditData?.remediation_tasks    ?? [];
