@@ -230,14 +230,47 @@ export const runCrawlAgent = async (url) => {
 
         console.log(`[crawlAgent] Clean payload ready. Unique issue types: ${cleanPayload.grouped_issues.length}`);
 
-        // Step 3: Send clean data to Gemini — request structured JSON
-        const result = await model.invoke([
+        // Step 3: Send clean data to Gemini — request structured JSON with automatic retry
+        const messages = [
             new SystemMessage(SYSTEM_PROMPT),
             new HumanMessage(
                 `Here is the dark pattern scan result for ${url}. Produce the structured JSON audit report.\n\n` +
                 `\`\`\`json\n${JSON.stringify(cleanPayload, null, 2)}\n\`\`\``
             ),
-        ]);
+        ];
+
+        let result;
+        let attempt = 0;
+        const maxRetries = 3;
+        
+        while (attempt < maxRetries) {
+            try {
+                result = await model.invoke(messages);
+                break; // Success, exit retry loop
+            } catch (err) {
+                attempt++;
+                console.warn(`[crawlAgent] API attempt ${attempt} failed: ${err.message}`);
+                
+                if (attempt >= maxRetries) {
+                    throw err; // Out of retries
+                }
+                
+                if (err.message.includes('429 Too Many Requests') || err.message.includes('Quota exceeded')) {
+                    // Extract "retry in 57.332s" to wait the exact amount Google asks for
+                    const match = err.message.match(/retry in ([\d\.]+)s/i);
+                    let waitTimeMs = 60000; // Default 60 seconds
+                    
+                    if (match && match[1]) {
+                        waitTimeMs = Math.ceil(parseFloat(match[1])) * 1000 + 1500; // parse + add 1.5s buffer
+                    }
+                    
+                    console.log(`[crawlAgent] Rate limited. Waiting ${Math.round(waitTimeMs/1000)}s before retry ${attempt + 1}/${maxRetries}...`);
+                    await new Promise(r => setTimeout(r, waitTimeMs));
+                } else {
+                    throw err; // Non-retryable error
+                }
+            }
+        }
 
         // Step 4: Parse the JSON response — strip any accidental markdown fences
         let auditData;
@@ -262,6 +295,12 @@ export const runCrawlAgent = async (url) => {
 
     } catch (error) {
         console.error('[crawlAgent] Error:', error.message);
-        return { success: false, error: error.message };
+        
+        let friendlyError = error.message;
+        if (error.message.includes('429 Too Many Requests') || error.message.includes('Quota exceeded')) {
+            friendlyError = "Gemini API rate limit exceeded. You are on the free tier which allows ~15 requests per minute. Please wait 60 seconds and try again.";
+        }
+
+        return { success: false, error: friendlyError };
     }
 };
