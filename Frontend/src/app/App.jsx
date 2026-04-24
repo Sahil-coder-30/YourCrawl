@@ -21,6 +21,7 @@ import Analysis from "../features/analysis/components/Analysis";
 import Roadmap from "../features/roadmap/components/Roadmap";
 import Compliance from "../features/compliance/components/Compliance";
 import Audits from "../features/audits/components/Audits";
+import Profile from "../features/profile/components/Profile";
 
 function App() {
   return (
@@ -43,6 +44,7 @@ function App() {
           <Route path="/analysis" element={<ProtectedRoute><Analysis /></ProtectedRoute>} />
           <Route path="/roadmap" element={<ProtectedRoute><Roadmap /></ProtectedRoute>} />
           <Route path="/compliance" element={<ProtectedRoute><Compliance /></ProtectedRoute>} />
+          <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
 
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

@@ -41,11 +41,15 @@ export const authRegisterController = async (req, res, next) => {
 
     const verificationLink = `http://localhost:3000/api/auth/verify-email/${emailVerificationToken}`;
 
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    await otpModel.deleteMany({ email: newUser.email, type: 'email_verification' });
+    await otpModel.create({ email: newUser.email, otp, type: 'email_verification' });
+
     await sendEmail({
       to: newUser.email,
       subject: "YourCrawl — Verify your email",
-      text: `Welcome to YourCrawl, ${newUser.username}!\n\nVerify your email: ${verificationLink}\nExpires in 24 hours.`,
-      html: verifyEmailTemplate({ username: newUser.username, verificationLink }),
+      text: `Welcome to YourCrawl, ${newUser.username}!\n\nYour verification code is: ${otp} (Expires in 5 minutes).\n\nVerify your email via link: ${verificationLink}\nLink expires in 24 hours.`,
+      html: verifyEmailTemplate({ username: newUser.username, verificationLink, otp }),
     });
 
     res.status(201).json({
@@ -543,8 +547,30 @@ export async function authResetPasswordController(req, res, next) {
   } catch (err) {
     console.error(err);
     err.statusCode = err.statusCode || 500;
-    err.message =
-      err.message || "Something went wrong while resetting password.";
+    err.message = err.message || "Something went wrong while resetting password.";
+    return next(err);
+  }
+}
+
+export async function authUpdateProfileController(req, res, next) {
+  try {
+    const { username, mobileNo } = req.body;
+    const user = await userModel.findById(req.user.id);
+    if (!user) {
+      const err = new Error("User not found.");
+      err.statusCode = 404;
+      return next(err);
+    }
+    
+    if (username) user.username = username;
+    if (mobileNo !== undefined) user.mobileNo = mobileNo;
+    
+    await user.save();
+    return res.status(200).json({ message: "Profile updated successfully.", user });
+  } catch (err) {
+    console.error(err);
+    err.statusCode = err.statusCode || 500;
+    err.message = err.message || "Something went wrong while updating profile.";
     return next(err);
   }
 }
