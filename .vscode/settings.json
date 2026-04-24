@@ -1,0 +1,11 @@
+{
+  "python.defaultInterpreterPath": "/opt/anaconda3/bin/python3",
+  "python.analysis.extraPaths": [
+    "./ML"
+  ],
+  "python.analysis.autoSearchPaths": true,
+  "python.analysis.diagnosticSeverityOverrides": {
+    "reportMissingImports": "warning",
+    "reportMissingModuleSource": "none"
+  }
+}

@@ -23,6 +23,9 @@ import Compliance from "../features/compliance/components/Compliance";
 import Audits from "../features/audits/components/Audits";
 import Profile from "../features/profile/components/Profile";
 
+// RAG Compliance Assistant
+import RagChat from "../features/rag/components/RagChat";
+
 function App() {
   return (
     <div className="App">
@@ -48,6 +51,10 @@ function App() {
 
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
+
+        {/* ── Floating RAG Chat — available on all pages ── */}
+        <RagChat />
+
         <Toaster position="top-right" richColors closeButton />
       </BrowserRouter>
     </div>
@@ -55,3 +62,4 @@ function App() {
 }
 
 export default App;
+

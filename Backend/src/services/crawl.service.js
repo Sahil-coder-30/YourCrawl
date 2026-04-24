@@ -369,6 +369,8 @@ export const crawlPage = async (url) => {
             ]
         };
 
+        console.log('crawlData', JSON.stringify(crawlData, null, 2));
+
         console.log(`[crawlPage] Done. Extracted ${elements.length} elements from "${title}".`);
         return { success: true, data: crawlData };
 

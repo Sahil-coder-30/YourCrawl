@@ -2,6 +2,7 @@ import express from 'express'
 import cors from 'cors'
 import crawlRoutes from '../routes/crawl.route.js'
 import authRouter from '../routes/auth.routes.js'
+import ragRoutes from '../routes/rag.route.js'
 import morgan from 'morgan'
 import cookieParser from 'cookie-parser'
 import passport from '../config/passport.js'
@@ -34,6 +35,7 @@ app.use('/screenshots', express.static('screenshots'));
 // Routes
 app.use('/api/auth', authRouter);
 app.use('/api', crawlRoutes);
+app.use('/api/rag', ragRoutes);
 
 // Global error handler (must be last)
 app.use(errorHandler);
