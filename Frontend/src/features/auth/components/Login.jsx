@@ -83,13 +83,28 @@ function DashboardMockup() {
 
 export default function Login() {
   const { login, loading, error } = useLogin();
-  const { fetchMe, isAuthenticated } = useGetMe();
+  const { fetchMe, isAuthenticated, loading: getMeLoading } = useGetMe();
   const navigate = useNavigate();
+  const [checked, setChecked] = useState(false);
 
-  useEffect(() => { fetchMe(); }, []);
+  // On mount, check if user is already authenticated (session cookie exists)
   useEffect(() => {
-    if (isAuthenticated) navigate("/dashboard");
-  }, [isAuthenticated, navigate]);
+    fetchMe()
+      .then((result) => {
+        // getMeThunk.fulfilled → user is already logged in
+        if (result?.type?.endsWith("/fulfilled")) {
+          navigate("/dashboard", { replace: true });
+        }
+      })
+      .finally(() => setChecked(true));
+  }, []);
+
+  // Also watch isAuthenticated for changes after login
+  useEffect(() => {
+    if (checked && isAuthenticated) {
+      navigate("/dashboard", { replace: true });
+    }
+  }, [isAuthenticated, checked, navigate]);
 
   const [form, setForm] = useState({ email: "", password: "" });
   const [showPass, setShowPass] = useState(false);

@@ -241,9 +241,13 @@ const authSlice = createSlice({
       })
       .addCase(getMeThunk.rejected, (state, action) => {
         state.loading.getMe = false;
-        state.isAuthenticated = false;
         state.error.getMe = action.payload;
-        localStorage.removeItem("hasLoggedIn");
+        // Only clear auth state if user wasn't already authenticated
+        // (prevents race condition where getMe rejects right after login succeeds)
+        if (!state.user) {
+          state.isAuthenticated = false;
+          localStorage.removeItem("hasLoggedIn");
+        }
       });
 
     // ── Verify OTP ────────────────────────────────────────────────────────

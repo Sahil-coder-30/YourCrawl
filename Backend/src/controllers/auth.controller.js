@@ -121,7 +121,7 @@ export const authLoginController = async (req, res, next) => {
       });
     }
     if(!user.password){
-      res.status(403).json({
+      return res.status(403).json({
         message :"user have not created the password yet login with google or create one...",
         id : user._id,
         email : user.email,

@@ -56,9 +56,16 @@ export function useLogin() {
   const login = async (credentials) => {
     const result = await dispatch(loginThunk(credentials));
     if (loginThunk.fulfilled.match(result)) {
-      await dispatch(getMeThunk()); // hydrate user object
-      toast.success("Welcome back!");
-      navigate("/dashboard");
+      const meResult = await dispatch(getMeThunk()); // hydrate user object
+      if (getMeThunk.fulfilled.match(meResult)) {
+        toast.success("Welcome back!");
+        navigate("/dashboard", { replace: true });
+      } else {
+        // Login succeeded (cookie set) but getMe failed — still redirect
+        // isAuthenticated is already true from loginThunk.fulfilled
+        toast.success("Welcome back!");
+        navigate("/dashboard", { replace: true });
+      }
     } else {
       toast.error(result.payload || "Login failed.");
     }
