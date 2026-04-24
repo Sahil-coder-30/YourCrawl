@@ -72,6 +72,15 @@
         "severity_tier": "critical"
     },
     {
+        "clause_id": "GDPR-A12-1",
+        "act_name": "General Data Protection Regulation (EU)",
+        "section": "Article 12(1)",
+        "text": "The controller shall take appropriate measures to provide any information referred to in Articles 13 and 14 and any communication under Articles 15 to 22 and 34 relating to processing to the data subject in a concise, transparent, intelligible and easily accessible form, using clear and plain language.",
+        "keywords": ["concise", "transparent", "intelligible", "easily accessible", "clear", "plain language", "hidden"],
+        "dark_pattern_types": ["buried_information", "hidden_information", "visual_misdirection"],
+        "severity_tier": "high"
+    },
+    {
         "clause_id": "EUAI-A5-1a",
         "act_name": "EU AI Act",
         "section": "Article 5(1)(a)",
@@ -104,7 +113,7 @@
         "section": "Guideline 3 — False Urgency",
         "text": "No person, including any platform, shall engage in any practice of falsely stating or implying the sense of urgency or scarcity so as to mislead a user into making an immediate purchase or taking an immediate action, which may lead to a purchase.",
         "keywords": ["urgency", "scarcity", "immediate", "purchase", "mislead"],
-        "dark_pattern_types": ["countdown_timer", "limited_time_claim", "low_stock_warning", "expiring_offer"],
+        "dark_pattern_types": ["countdown_timer", "limited_time_claim", "low_stock_warning", "expiring_offer", "false_urgency"],
         "severity_tier": "high"
     },
     {
@@ -113,7 +122,7 @@
         "section": "Guideline 4 — Basket Sneaking",
         "text": "No person, including any platform, shall add additional items such as products, services, payments to charity/donation at the time of checkout on a platform, without the consent of the user, such that the total amount payable by the user is more than the amount payable for the product or service chosen by the user.",
         "keywords": ["additional items", "checkout", "consent", "total amount", "sneaking"],
-        "dark_pattern_types": ["hidden_costs", "drip_pricing", "hidden_subscription", "sneaking"],
+        "dark_pattern_types": ["hidden_costs", "drip_pricing", "hidden_subscription", "sneaking", "sneak_into_basket"],
         "severity_tier": "critical"
     },
     {
@@ -160,5 +169,77 @@
         "keywords": ["repeatedly", "persistently", "denied", "disrupting"],
         "dark_pattern_types": ["nagging", "repeated_prompts", "persistent_banners", "notification_spam", "popup_loops"],
         "severity_tier": "medium"
+    },
+    {
+        "clause_id": "FTC-ACT-S5",
+        "act_name": "Federal Trade Commission (FTC) Act (USA)",
+        "section": "Section 5(a)",
+        "text": "Unfair methods of competition in or affecting commerce, and unfair or deceptive acts or practices in or affecting commerce, are hereby declared unlawful.",
+        "keywords": ["unfair", "deceptive", "commerce", "unlawful"],
+        "dark_pattern_types": ["bait_and_switch", "hidden_costs", "misleading_language", "trick_questions"],
+        "severity_tier": "critical"
+    },
+    {
+        "clause_id": "ROSCA-S8403",
+        "act_name": "Restore Online Shoppers' Confidence Act (USA)",
+        "section": "Section 8403",
+        "text": "It shall be unlawful for any person to charge or attempt to charge any consumer for any goods or services sold in a transaction effected on the Internet through a negative option feature, unless the person provides simple mechanisms for a consumer to stop recurring charges from being placed on the consumer's credit card, debit card, bank account, or other financial account.",
+        "keywords": ["negative option", "recurring charges", "stop", "simple mechanisms", "cancellation"],
+        "dark_pattern_types": ["hard_to_cancel", "roach_motel", "forced_continuity", "hidden_subscription"],
+        "severity_tier": "critical"
+    },
+    {
+        "clause_id": "CPRA-1798.140",
+        "act_name": "California Privacy Rights Act (CPRA)",
+        "section": "1798.140 (l)",
+        "text": "Consent does not include acceptance of a general or broad terms of use or similar document that contains descriptions of personal information processing along with other, unrelated information... agreement obtained through use of dark patterns does not constitute consent.",
+        "keywords": ["dark patterns", "consent", "general terms", "unrelated information", "broad"],
+        "dark_pattern_types": ["buried_information", "forced_consent", "interface_interference", "pre_selection"],
+        "severity_tier": "critical"
+    },
+    {
+        "clause_id": "CPRA-REGS-7004",
+        "act_name": "California Privacy Rights Act (CPRA) Regulations",
+        "section": "Section 7004(b)(2)",
+        "text": "A business shall not use a dark pattern. A method that does not comply with these requirements may be a dark pattern. For example, a business must not use confusing language, such as double negatives (e.g., 'Don't Not Sell My Personal Information'), when providing consumers the choice to opt-out.",
+        "keywords": ["double negatives", "confusing language", "opt-out", "dark pattern"],
+        "dark_pattern_types": ["trick_questions", "misleading_language", "interface_interference"],
+        "severity_tier": "high"
+    },
+    {
+        "clause_id": "CCPA-REGS-7004-C",
+        "act_name": "California Consumer Privacy Act (CCPA) Regulations",
+        "section": "Section 7004(c)",
+        "text": "The business's methods for submitting requests to opt-out of sale/sharing or limit the use of sensitive personal information shall be easy for consumers to execute and shall require minimal steps... A business shall not require a consumer to read or listen to reasons why they should not submit a request before confirming the consumer's request.",
+        "keywords": ["easy", "minimal steps", "read reasons", "confirming"],
+        "dark_pattern_types": ["multi_step_exit", "obstruction", "confirm_shaming", "nagging"],
+        "severity_tier": "critical"
+    },
+    {
+        "clause_id": "CPA-S6-103",
+        "act_name": "Colorado Privacy Act (CPA)",
+        "section": "6.103-3",
+        "text": "Controllers shall not obtain Consent through the use of Dark Patterns. Dark Patterns include user interfaces designed or manipulated with the substantial effect of subverting or impairing user autonomy, decision-making, or choice.",
+        "keywords": ["subverting", "impairing", "autonomy", "decision-making", "choice"],
+        "dark_pattern_types": ["interface_interference", "visual_misdirection", "asymmetric_button_sizing", "false_hierarchy"],
+        "severity_tier": "critical"
+    },
+    {
+        "clause_id": "COPPA-312.4",
+        "act_name": "Children's Online Privacy Protection Act (USA)",
+        "section": "Section 312.4",
+        "text": "The operator must provide clear and understandable notice of its information practices with regard to children... the notice must be clearly and comprehensively written.",
+        "keywords": ["children", "notice", "understandable", "clearly"],
+        "dark_pattern_types": ["buried_information", "misleading_language", "complex_cancellation_flow"],
+        "severity_tier": "high"
+    },
+    {
+        "clause_id": "PIPEDA-P4.3.2",
+        "act_name": "Personal Information Protection and Electronic Documents Act (Canada)",
+        "section": "Principle 4.3.2",
+        "text": "The principle requires 'knowledge and consent'. Organizations shall make a reasonable effort to ensure that the individual is advised of the purposes for which the information will be used. To make the consent meaningful, the purposes must be stated in such a manner that the individual can reasonably understand how the information will be used or disclosed.",
+        "keywords": ["knowledge", "consent", "purposes", "reasonably understand", "meaningful"],
+        "dark_pattern_types": ["buried_information", "hidden_information", "trick_questions", "pre_selection"],
+        "severity_tier": "high"
     }
 ]
