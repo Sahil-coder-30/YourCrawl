@@ -1,5 +1,5 @@
 import express from "express";
-import { authLoginController, authRegisterController, authVerifyEmailController, authGoogleCallbackController, authCreatePassword, authLogoutController, authResendOtpController, authForgetPasswordController, authResetPasswordController, authVerifyOtpController, authGetMeController } from "../controllers/auth.controller.js";
+import { authLoginController, authRegisterController, authVerifyEmailController, authGoogleCallbackController, authCreatePassword, authLogoutController, authResendOtpController, authForgetPasswordController, authResetPasswordController, authVerifyOtpController, authGetMeController, authUpdateProfileController } from "../controllers/auth.controller.js";
 import { validateLogin, validateRegister } from "../validators/auth.validator.js";
 import passport from '../config/passport.js';
 import { identifyUser } from "../middlewares/auth.middleware.js";
@@ -26,6 +26,7 @@ authRouter.post("/Forget-password" , authForgetPasswordController);
 authRouter.post("/reset-password" , authResetPasswordController);
 authRouter.post("/verify-otp" , authVerifyOtpController);
 authRouter.get("/Get-Me", identifyUser , authGetMeController);
+authRouter.put("/profile", identifyUser, authUpdateProfileController);
 
 
 export default authRouter;

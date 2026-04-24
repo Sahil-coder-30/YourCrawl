@@ -62,7 +62,19 @@ const baseWrapper = (content) => `<!DOCTYPE html>
 
 
 // ── 1. Email Verification (link-based) ────────────────────────────────────────
-export function verifyEmailTemplate({ username, verificationLink }) {
+export function verifyEmailTemplate({ username, verificationLink, otp }) {
+  const digitBoxes = otp
+    ? otp
+        .split("")
+        .map(
+          (d) =>
+            `<td style="padding:0 3px;">
+               <div style="width:44px;height:56px;line-height:56px;text-align:center;background:#0c0c0c;border:1px solid #2a2a2a;font-size:26px;font-weight:700;color:#D4AF7A;font-family:'Courier New',monospace;display:inline-block;">${d}</div>
+             </td>`
+        )
+        .join("")
+    : "";
+
   const content = `
     <tr><td style="padding:40px 40px 36px;">
 
@@ -71,8 +83,27 @@ export function verifyEmailTemplate({ username, verificationLink }) {
 
       <p style="margin:0 0 32px;font-size:14px;color:rgba(255,255,255,0.5);line-height:1.8;">
         Hey <strong style="color:#ffffff;">${username}</strong>, welcome to YourCrawl.<br>
-        Click the button below to confirm your email and activate your account.
+        Use the code below or click the button to confirm your email and activate your account.
       </p>
+
+      ${
+        otp
+          ? `
+      <!-- OTP Digit Boxes -->
+      <table cellpadding="0" cellspacing="0" style="margin:0 0 28px;">
+        <tr>${digitBoxes}</tr>
+      </table>
+
+      <!-- Plain-text OTP fallback -->
+      <table width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 28px;">
+        <tr><td style="background:#0c0c0c;border:1px solid #2a2a2a;padding:20px;text-align:center;">
+          <p style="margin:0 0 8px;font-size:9px;letter-spacing:0.3em;text-transform:uppercase;color:rgba(255,255,255,0.25);">Verification Code</p>
+          <p style="margin:0;font-size:36px;font-weight:700;letter-spacing:0.25em;color:#D4AF7A;font-family:'Courier New',monospace;">${otp}</p>
+        </td></tr>
+      </table>
+      `
+          : ""
+      }
 
       <!-- CTA Button -->
       <table cellpadding="0" cellspacing="0" style="margin:0 0 28px;">
@@ -91,7 +122,7 @@ export function verifyEmailTemplate({ username, verificationLink }) {
       </p>
 
       <p style="margin:0;font-size:12px;color:rgba(255,255,255,0.25);line-height:1.6;">
-        This link expires in <strong style="color:rgba(255,255,255,0.45);">24 hours</strong>.
+        ${otp ? 'The verification code expires in <strong style="color:rgba(255,255,255,0.45);">5 minutes</strong>, and the link expires' : 'This link expires'} in <strong style="color:rgba(255,255,255,0.45);">24 hours</strong>.
         If you didn&apos;t create an account, you can safely ignore this email.
       </p>
 

@@ -135,7 +135,7 @@ const getBrowserInstance = async () => {
     if (!browserInstance) {
         browserInstance = await puppeteer.launch({
             headless: true,
-            executablePath: '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
+            executablePath: process.env.CHROME_EXECUTABLE_PATH || undefined,
             args: [
                 '--no-sandbox',
                 '--disable-setuid-sandbox',

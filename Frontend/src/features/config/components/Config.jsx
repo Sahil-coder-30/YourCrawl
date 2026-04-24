@@ -18,9 +18,9 @@ import { toast } from "sonner";
 // Static list of supported compliance frameworks (UI config, not audit data)
 const FRAMEWORKS = [
   { id: "eu-ai-act", name: "EU AI Act",      desc: "High-risk system categorization and transparency requirements.",              icon: "shield",        defaultSelected: true  },
-  { id: "dpdp",     name: "DPDP (India)",   desc: "Digital Personal Data Protection compliance for data principals.",          icon: "scale",         defaultSelected: false },
+  { id: "dpdp",     name: "DPDP (India)",   desc: "Digital Personal Data Protection compliance for data principals.",          icon: "scale",         defaultSelected: true },
   { id: "gdpr",     name: "GDPR",           desc: "European data privacy and security law standards.",                         icon: "shield-check",  defaultSelected: true  },
-  { id: "nist",     name: "NIST AI RMF",    desc: "Risk management framework for trustworthy artificial intelligence.",        icon: "list-checks",   defaultSelected: false },
+  { id: "nist",     name: "NIST AI RMF",    desc: "Risk management framework for trustworthy artificial intelligence.",        icon: "list-checks",   defaultSelected: true },
 ];
 import { runAudit, selectAuditStatus } from "../../audit/state/audit.slice";
 
@@ -52,7 +52,7 @@ export default function Config() {
   const isLoading = auditStatus === "loading";
 
   const [selected, setSelected] = useState(
-    new Set(FRAMEWORKS.filter((f) => f.defaultSelected).map((f) => f.id))
+    new Set(FRAMEWORKS.map((f) => f.id))
   );
   const [depth, setDepth] = useState("surface");
   const [env, setEnv] = useState("production");
@@ -61,12 +61,7 @@ export default function Config() {
   const [url, setUrl] = useState("");
 
   const toggleFw = (id) => {
-    setSelected((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
+    // Disabled: User cannot deselect frameworks.
   };
 
   const startAudit = async () => {
@@ -304,25 +299,15 @@ export default function Config() {
           <div className="mt-5 flex flex-col gap-3">
             {FRAMEWORKS.map((fw) => {
               const Icon = iconMap[fw.icon] ?? Shield;
-              const active = selected.has(fw.id);
+              const active = true; // Always active since they cannot be deselected
               return (
-                <button
+                <div
                   key={fw.id}
                   data-testid={`fw-${fw.id}`}
-                  onClick={() => toggleFw(fw.id)}
-                  disabled={isLoading}
-                  className={`flex items-start justify-between gap-3 rounded-xl border p-5 text-left transition ${
-                    active
-                      ? "border-blue-500 bg-blue-50/30 ring-1 ring-blue-500"
-                      : "border-slate-200 hover:border-slate-300"
-                  }`}
+                  className="flex items-start justify-between gap-3 rounded-xl border p-5 text-left transition border-blue-500 bg-blue-50/30 ring-1 ring-blue-500"
                 >
                   <div className="flex items-start gap-4">
-                    <div
-                      className={`grid h-10 w-10 shrink-0 place-items-center rounded-lg ${
-                        active ? "bg-blue-100 text-blue-600" : "bg-slate-100 text-slate-500"
-                      }`}
-                    >
+                    <div className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-blue-100 text-blue-600">
                       <Icon className="h-[18px] w-[18px]" />
                     </div>
                     <div>
@@ -334,20 +319,12 @@ export default function Config() {
                       </p>
                     </div>
                   </div>
-                  <div
-                    className={`mt-1 grid h-5 w-5 shrink-0 place-items-center rounded-full border-2 transition ${
-                      active
-                        ? "border-blue-600 bg-blue-600 text-white"
-                        : "border-slate-300 bg-white"
-                    }`}
-                  >
-                    {active && (
-                      <svg viewBox="0 0 12 12" className="h-3 w-3 fill-none stroke-white" strokeWidth="2">
-                        <path d="M2 6.5 L5 9 L10 3.5" strokeLinecap="round" strokeLinejoin="round" />
-                      </svg>
-                    )}
+                  <div className="mt-1 grid h-5 w-5 shrink-0 place-items-center rounded-full border-2 transition border-blue-600 bg-blue-600 text-white cursor-not-allowed opacity-80">
+                    <svg viewBox="0 0 12 12" className="h-3 w-3 fill-none stroke-white" strokeWidth="2">
+                      <path d="M2 6.5 L5 9 L10 3.5" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
                   </div>
-                </button>
+                </div>
               );
             })}
           </div>
