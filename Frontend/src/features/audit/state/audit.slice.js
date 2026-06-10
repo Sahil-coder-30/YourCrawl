@@ -13,13 +13,13 @@ import api from "../../../services/api";
 
 // ─── Async Thunks ─────────────────────────────────────────────────────────────
 
-/** Run a new audit for a URL */
+/** Run a new audit for a URL (with optional additional routes) */
 export const runAudit = createAsyncThunk(
   "audit/runAudit",
-  async (url, { rejectWithValue }) => {
+  async ({ url, routes = [], reportId }, { rejectWithValue }) => {
     try {
-      const response = await api.post("/crawl", { url });
-      return response.data; // { success, reportId, auditData }
+      const response = await api.post("/crawl", { url, routes, reportId });
+      return response.data; // { success, reportId, auditData, routes }
     } catch (err) {
       // Prefer the server's descriptive error message over Axios' generic one
       const data = err.response?.data || {};
@@ -27,6 +27,22 @@ export const runAudit = createAsyncThunk(
         message: data.error || data.message || err.message || "Audit failed",
         errorCode: data.errorCode || "UNKNOWN",
       });
+    }
+  }
+);
+
+/** Discover internal routes for a given base URL (Phase 1 of the wizard) */
+export const discoverRoutes = createAsyncThunk(
+  "audit/discoverRoutes",
+  async (url, { rejectWithValue }) => {
+    try {
+      const response = await api.post("/crawl/discover", { url });
+      return response.data.routes; // array of { path, label, fullUrl }
+    } catch (err) {
+      const data = err.response?.data || {};
+      return rejectWithValue(
+        data.error || data.message || err.message || "Route discovery failed"
+      );
     }
   }
 );
@@ -80,6 +96,11 @@ const auditSlice = createSlice({
     history: [],           // array of { id, target, framework, status, findings, risk, date }
     historyStatus: "idle", // idle | loading | succeeded | failed
     historyError: null,
+
+    /** Route discovery lifecycle (Phase 1 of the wizard) */
+    discoveredRoutes: [],      // array of { path, label, fullUrl }
+    discoverStatus: "idle",    // idle | loading | succeeded | failed
+    discoverError: null,
   },
 
   reducers: {
@@ -90,6 +111,11 @@ const auditSlice = createSlice({
       state.status = "idle";
       state.error = null;
       state.errorCode = null;
+    },
+    clearDiscovery(state) {
+      state.discoveredRoutes = [];
+      state.discoverStatus = "idle";
+      state.discoverError = null;
     },
   },
 
@@ -106,6 +132,7 @@ const auditSlice = createSlice({
         state.status = "succeeded";
         state.auditData = action.payload.auditData;
         state.currentReportId = action.payload.reportId;
+        state.discoveredRoutes = action.payload.routes || [];
       })
       .addCase(runAudit.rejected, (state, action) => {
         state.status = "failed";
@@ -143,20 +170,40 @@ const auditSlice = createSlice({
         state.status = "failed";
         state.error = action.payload;
       });
+
+    // ── discoverRoutes ────────────────────────────────────────────────────
+    builder
+      .addCase(discoverRoutes.pending, (state) => {
+        state.discoverStatus = "loading";
+        state.discoverError = null;
+        state.discoveredRoutes = [];
+      })
+      .addCase(discoverRoutes.fulfilled, (state, action) => {
+        state.discoverStatus = "succeeded";
+        state.discoveredRoutes = action.payload;
+      })
+      .addCase(discoverRoutes.rejected, (state, action) => {
+        state.discoverStatus = "failed";
+        state.discoverError = action.payload;
+      });
   },
 });
 
-export const { clearAudit } = auditSlice.actions;
+export const { clearAudit, clearDiscovery } = auditSlice.actions;
 
 // ─── Selectors ────────────────────────────────────────────────────────────────
-// Plain selectors (return primitives or the stored reference — safe without memoization)
+// Plain selectors
 export const selectAuditData        = (s) => s.audit.auditData;
+export const selectCurrentReportId  = (s) => s.audit.currentReportId;
 export const selectAuditStatus      = (s) => s.audit.status;
 export const selectAuditError       = (s) => s.audit.error;
 export const selectAuditErrorCode   = (s) => s.audit.errorCode;
 export const selectHistory          = (s) => s.audit.history;
 export const selectHistoryStatus    = (s) => s.audit.historyStatus;
 export const selectExecutiveSummary = (s) => s.audit.auditData?.executive_summary ?? "";
+export const selectDiscoveredRoutes = (s) => s.audit.discoveredRoutes;
+export const selectDiscoverStatus   = (s) => s.audit.discoverStatus;
+export const selectDiscoverError    = (s) => s.audit.discoverError;
 
 // Memoized selectors — these return new array/object references when derived,
 // so we use createSelector to keep the reference stable between renders.

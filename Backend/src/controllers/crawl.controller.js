@@ -1,4 +1,5 @@
 import { runCrawlAgent } from "../services/ai.service.js";
+import { discoverRoutes as discoverRoutesService } from "../services/crawl.service.js";
 import AuditReport from "../models/auditReport.model.js";
 
 // ─── Error Code → HTTP Status Mapping ─────────────────────────────────────────
@@ -30,12 +31,27 @@ const mapErrorCodeToStatus = (errorCode) => {
 export const crawlUrl = async (req, res) => {
     try {
         // url is guaranteed to exist and be normalised by validateCrawlUrl middleware
-        const { url } = req.body;
+        const { url, routes, reportId } = req.body;
         const userId = req.user.id; // set by identifyUser middleware
 
-        console.log(`[crawlController] Starting audit for: ${url} (user: ${userId})`);
+        const additionalRoutes = Array.isArray(routes) ? routes : [];
 
-        const result = await runCrawlAgent(url);
+        let appType = null;
+        if (reportId) {
+            try {
+                const prevReport = await AuditReport.findOne({ _id: reportId, userId }).lean();
+                if (prevReport && prevReport.auditData?.app_type) {
+                    appType = prevReport.auditData.app_type;
+                }
+            } catch (err) {
+                console.error(`[crawlController] Failed to load previous appType for report ${reportId}:`, err.message);
+            }
+        }
+
+        console.log(`[crawlController] Starting audit for: ${url} (user: ${userId}) — routes: ${additionalRoutes.length}, reportId: ${reportId || 'none'}, appType: ${appType || 'none'}`);
+
+        const result = await runCrawlAgent(url, additionalRoutes, appType);
+        console.log(result);
 
         if (!result.success) {
             // Map errorCode to an appropriate HTTP status
@@ -51,27 +67,65 @@ export const crawlUrl = async (req, res) => {
 
         // ── Persist to MongoDB ──────────────────────────────────────────────
         const sc = auditData.stat_cards ?? {};
-        const savedReport = await AuditReport.create({
-            userId,
-            scanUrl: url,
-            auditData,
-            summary: {
-                totalFindings: sc.total_findings  ?? 0,
-                riskScore:     sc.risk_score      ?? 0,
-                criticalCount: sc.critical_count  ?? 0,
-                highCount:     sc.high_count      ?? 0,
-                mediumCount:   sc.medium_count    ?? 0,
-                lowCount:      sc.low_count       ?? 0,
-                framework:     auditData.audit_entry?.framework ?? "",
-            },
-        });
+        let savedReport;
 
-        console.log(`[crawlController] Report saved (id: ${savedReport._id})`);
+        if (reportId) {
+            savedReport = await AuditReport.findOneAndUpdate(
+                { _id: reportId, userId },
+                {
+                    auditData,
+                    summary: {
+                        totalFindings: sc.total_findings  ?? 0,
+                        riskScore:     sc.risk_score      ?? 0,
+                        criticalCount: sc.critical_count  ?? 0,
+                        highCount:     sc.high_count      ?? 0,
+                        mediumCount:   sc.medium_count    ?? 0,
+                        lowCount:      sc.low_count       ?? 0,
+                        framework:     auditData.audit_entry?.framework ?? "",
+                    },
+                },
+                { new: true }
+            );
+            if (!savedReport) {
+                savedReport = await AuditReport.create({
+                    userId,
+                    scanUrl: url,
+                    auditData,
+                    summary: {
+                        totalFindings: sc.total_findings  ?? 0,
+                        riskScore:     sc.risk_score      ?? 0,
+                        criticalCount: sc.critical_count  ?? 0,
+                        highCount:     sc.high_count      ?? 0,
+                        mediumCount:   sc.medium_count    ?? 0,
+                        lowCount:      sc.low_count       ?? 0,
+                        framework:     auditData.audit_entry?.framework ?? "",
+                    },
+                });
+            }
+        } else {
+            savedReport = await AuditReport.create({
+                userId,
+                scanUrl: url,
+                auditData,
+                summary: {
+                    totalFindings: sc.total_findings  ?? 0,
+                    riskScore:     sc.risk_score      ?? 0,
+                    criticalCount: sc.critical_count  ?? 0,
+                    highCount:     sc.high_count      ?? 0,
+                    mediumCount:   sc.medium_count    ?? 0,
+                    lowCount:      sc.low_count       ?? 0,
+                    framework:     auditData.audit_entry?.framework ?? "",
+                },
+            });
+        }
+
+        console.log(`[crawlController] Report saved/updated (id: ${savedReport._id})`);
 
         return res.status(200).json({
             success: true,
             reportId: savedReport._id,
             auditData,
+            routes: result.discoveredRoutes || [],
         });
 
     } catch (error) {
@@ -146,5 +200,36 @@ export const getAuditById = async (req, res) => {
     } catch (error) {
         console.error("[crawlController] getAuditById error:", error.message);
         return res.status(500).json({ success: false, error: "Failed to fetch audit" });
+    }
+};
+// ─── POST /api/crawl/discover ──────────────────────────────────────────────────
+/**
+ * Loads the base URL and returns all discovered same-origin internal routes.
+ * The frontend uses these to build the route-selection checklist for the user.
+ */
+export const discoverRoutes = async (req, res) => {
+    try {
+        const { url } = req.body;
+
+        if (!url || typeof url !== 'string' || !url.trim()) {
+            return res.status(422).json({ success: false, error: 'URL is required.', errorCode: 'INVALID_URL' });
+        }
+
+        const result = await discoverRoutesService(url.trim());
+
+        if (!result.success) {
+            const httpStatus = mapErrorCodeToStatus(result.errorCode);
+            return res.status(httpStatus).json({
+                success: false,
+                error: result.error,
+                errorCode: result.errorCode || 'DISCOVERY_ERROR',
+            });
+        }
+
+        return res.status(200).json({ success: true, routes: result.routes });
+
+    } catch (error) {
+        console.error('[crawlController] discoverRoutes error:', error.message);
+        return res.status(500).json({ success: false, error: 'Internal server error', errorCode: 'INTERNAL_ERROR' });
     }
 };

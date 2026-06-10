@@ -687,6 +687,77 @@
 }
 .auth-role-radio { display: none; }
 
+/* ── SetPassword — context banners ────────────────────────── */
+.setp-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.6rem;
+  padding: 0.85rem 1rem;
+  margin-bottom: 1.25rem;
+  border-radius: 0.625rem;
+  font-size: 0.82rem;
+  line-height: 1.6;
+  font-weight: 500;
+}
+
+.setp-banner--notice {
+  background: #fff7ed;
+  border: 1px solid #fed7aa;
+  color: #c2410c;
+}
+.setp-banner--notice strong { color: #9a3412; }
+
+.setp-banner--info {
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  color: #1d4ed8;
+}
+.setp-banner--info strong { color: #1e40af; }
+
+/* ── SetPassword — lock illustration ─────────────────────── */
+.setp-illustration {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 180px;
+  height: 180px;
+}
+
+.setp-illustration__ring {
+  position: absolute;
+  border-radius: 50%;
+  border: 1.5px solid rgba(37, 99, 235, 0.15);
+  animation: setp-pulse 3s ease-in-out infinite;
+}
+
+.setp-illustration__ring--outer {
+  width: 180px;
+  height: 180px;
+  animation-delay: 0s;
+}
+.setp-illustration__ring--mid {
+  width: 130px;
+  height: 130px;
+  border-color: rgba(37, 99, 235, 0.25);
+  animation-delay: 0.5s;
+}
+.setp-illustration__ring--inner {
+  width: 80px;
+  height: 80px;
+  background: rgba(37, 99, 235, 0.07);
+  border-color: rgba(37, 99, 235, 0.35);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: none;
+}
+
+@keyframes setp-pulse {
+  0%, 100% { transform: scale(1); opacity: 0.6; }
+  50% { transform: scale(1.04); opacity: 1; }
+}
+
 /* ── Responsive ───────────────────────────────────────────── */
 @media (max-width: 900px) {
   .auth-page { grid-template-columns: 1fr; }

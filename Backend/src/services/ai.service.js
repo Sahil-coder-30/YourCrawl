@@ -1,6 +1,6 @@
 import { ChatGoogleGenerativeAI } from '@langchain/google-genai';
 import { HumanMessage, SystemMessage } from '@langchain/core/messages';
-import { crawlAndScan } from './crawl.service.js';
+import { crawlAndScan, saveTrainingRecord } from './crawl.service.js';
 import { config } from '../config/config.js';
 
 // ─── Model ────────────────────────────────────────────────────────────────────
@@ -81,6 +81,7 @@ const SYSTEM_PROMPT = `You are a dark pattern auditor AI. You receive ML model s
 The JSON must follow this schema exactly:
 
 {
+  "app_type": "<Type of application, e.g. 'E-commerce', 'SaaS', 'Social Media', 'Blog', 'Corporate', 'News', 'Forum', 'Government', 'Utility', etc.>",
   "scan_url": "<the scanned URL>",
   "scan_timestamp": "<ISO 8601 timestamp>",
   "executive_summary": "<4-6 sentence comprehensive narrative summarizing the overall risk posture, key dark patterns found, their real-world impact on users, and recommended immediate actions. Write this as a human-readable briefing a non-technical executive can understand.>",
@@ -201,15 +202,17 @@ RULES (follow exactly):
 /**
  * Run the audit pipeline on a given URL.
  *
- * @param {string} url - The website URL to audit.
+ * @param {string}   url    - The website URL to audit.
+ * @param {string[]} [routes=[]] - Additional route URLs to also crawl.
+ * @param {string}   [appType=null] - Pre-classified application type.
  * @returns {Promise<{success: boolean, auditData?: object, error?: string}>}
  */
-export const runCrawlAgent = async (url) => {
+export const runCrawlAgent = async (url, routes = [], appType = null) => {
     try {
-        console.log(`[crawlAgent] Starting audit for: ${url}`);
+        console.log(`[crawlAgent] Starting audit for: ${url} (${routes.length} additional routes, appType: ${appType || 'none'})`);
 
-        // Step 1: Crawl and scan
-        const crawlResult = await crawlAndScan(url);
+        // Step 1: Crawl and scan (base URL + additional routes)
+        const crawlResult = await crawlAndScan(url, routes, appType);
 
         if (!crawlResult.success) {
             return {
@@ -255,9 +258,14 @@ export const runCrawlAgent = async (url) => {
         }
 
         console.log('[crawlAgent] Audit complete. Total findings:', auditData?.stat_cards?.total_findings);
+
+        // Save training record locally with Gemini-classified app_type
+        saveTrainingRecord(url, crawlResult.mlPayload, crawlResult.rawScanResult, crawlResult.source, auditData.app_type);
+
         return {
             success: true,
             auditData,
+            discoveredRoutes: crawlResult.discoveredRoutes || [],
         };
 
     } catch (error) {

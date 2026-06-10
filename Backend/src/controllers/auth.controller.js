@@ -109,7 +109,8 @@ export const authLoginController = async (req, res, next) => {
   try {
     const { email, password } = req.body;
     const user = await userModel.findOne({ email }).select("+password");
-
+    console.log("112");
+    
     if (!user) {
       return res.status(409).json({
         message: "user does not exist with this email...",
@@ -121,11 +122,11 @@ export const authLoginController = async (req, res, next) => {
       });
     }
     if(!user.password){
-      res.status(403).json({
-        message :"user have not created the password yet login with google or create one...",
-        id : user._id,
-        email : user.email,
-      })
+      return res.status(403).json({
+        message: "Your account was created with Google. Please set a password to log in with email.",
+        needsPassword: true,
+        email: user.email,
+      });
     }
 
     const checkPassword = await bcrypt.compare(password, user.password);
@@ -189,12 +190,7 @@ export const authCreatePassword = async (req , res, next)=>{
     })
   }
 
-  const isSamePassword = await bcrypt.compare(password, user.password);
-  if (isSamePassword) {
-    return res.status(400).json({
-      message: "New password cannot be the same as the old password.",
-    });
-  }
+  // No need to check for same password — user has no existing password at this point.
   
   const hashedPassword = await bcrypt.hash(password, 10);
   user.password = hashedPassword;
@@ -248,7 +244,7 @@ export const authGoogleCallbackController = async (req, res, next) => {
         maxAge: 24 * 60 * 60 * 1000, // 1 day
       });
 
-      return res.redirect("http://localhost:5173/set-password");
+      return res.redirect("http://localhost:5173/dashboard");
 
     }
 

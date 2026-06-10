@@ -190,6 +190,75 @@ const geminiAnalyzeScreenshot = async (screenshotDataUrl, url, elements) => {
 
 let browserInstance = null;
 
+// ─── Training Data Persistence ────────────────────────────────────────────────────
+
+/**
+ * Saves a complete training record to disk after every successful scan.
+ *
+ * Output path:  <backend cwd>/training_data/<domain>_<timestamp>.json
+ *
+ * The saved JSON schema:
+ * {
+ *   meta: { saved_at, base_url, pages_crawled, total_elements, source },
+ *   input: { pages: [{ url, title, elements[] }] },   ← what the ML model sees
+ *   output: <raw scan result object>                   ← labelled dark-pattern findings
+ * }
+ *
+ * @param {string} baseUrl      - The root URL that was audited.
+ * @param {object} crawlPayload - The mlPayload (stripped of screenshots).
+ * @param {object} scanResult   - The parsed dark-pattern findings (ML or Gemini).
+ * @param {'ml'|'gemini'} source - Which analyser produced the output.
+ */
+export const saveTrainingRecord = (baseUrl, crawlPayload, scanResult, source, appType = null) => {
+    try {
+        const trainingDir = path.resolve(process.cwd(), 'training_data');
+        if (!fs.existsSync(trainingDir)) {
+            fs.mkdirSync(trainingDir, { recursive: true });
+        }
+
+        const timestamp   = Date.now();
+        const safeDomain  = (() => {
+            try { return new URL(baseUrl).hostname.replace(/[^a-z0-9.-]/gi, '_'); }
+            catch { return 'unknown'; }
+        })();
+        const filename    = `${safeDomain}_${timestamp}.json`;
+        const filepath    = path.join(trainingDir, filename);
+
+        const totalElements = (crawlPayload.pages || []).reduce(
+            (sum, p) => sum + (p.elements?.length || 0), 0
+        );
+
+        const record = {
+            app_type: appType || 'General',
+            meta: {
+                saved_at:       new Date(timestamp).toISOString(),
+                base_url:       baseUrl,
+                pages_crawled:  (crawlPayload.pages || []).length,
+                total_elements: totalElements,
+                source,          // 'ml' | 'gemini'
+                app_type:       appType || 'General',
+            },
+            // ── Input (what the model receives) ──────────────────────────────────
+            input: {
+                pages: (crawlPayload.pages || []).map(p => ({
+                    url:      p.url,
+                    title:    p.title,
+                    page_id:  p.page_id,
+                    elements: p.elements || [],
+                })),
+            },
+            // ── Output (labelled dark-pattern findings) ───────────────────────────
+            output: scanResult,
+        };
+
+        fs.writeFileSync(filepath, JSON.stringify(record, null, 2), 'utf-8');
+        console.log(`[trainingData] Saved → ${filepath}  (${totalElements} elements, source: ${source}, appType: ${record.app_type})`);
+    } catch (err) {
+        // Never let a save failure crash the main pipeline
+        console.error('[trainingData] Failed to save training record:', err.message);
+    }
+};
+
 // ─── Error Classification ─────────────────────────────────────────────────────
 
 /**
@@ -350,6 +419,129 @@ const resetBrowserInstance = async () => {
     if (browserInstance) {
         try { await browserInstance.close(); } catch { /* already dead */ }
         browserInstance = null;
+    }
+};
+
+// ─── Tool 0: discoverRoutes ─────────────────────────────────────────────────
+
+/**
+ * Loads the base URL and extracts all same-origin internal links.
+ * Returns a de-duplicated list of route paths the user can choose to scan.
+ *
+ * @param {string} baseUrl - The root URL of the application.
+ * @returns {Promise<{
+ *   success: boolean,
+ *   routes?: Array<{ path: string, label: string, fullUrl: string }>,
+ *   error?: string,
+ *   errorCode?: string
+ * }>}
+ */
+export const discoverRoutes = async (baseUrl) => {
+    const { valid, url: safeUrl, error: urlError } = validateUrl(baseUrl);
+    if (!valid) {
+        return { success: false, error: urlError, errorCode: 'INVALID_URL', retryable: false };
+    }
+
+    console.log(`[discoverRoutes] Discovering routes for: ${safeUrl}`);
+
+    let page;
+    let lastError;
+
+    for (let i = 0; i < NAV_STRATEGIES.length; i++) {
+        const strategy = NAV_STRATEGIES[i];
+        try {
+            const browser = await getBrowserInstance();
+            page = await browser.newPage();
+
+            await page.setRequestInterception(true);
+            page.on('request', (req) => {
+                if (['media', 'font', 'image'].includes(req.resourceType())) {
+                    req.abort();
+                } else {
+                    req.continue();
+                }
+            });
+
+            await page.setViewport({ width: 1280, height: 800 });
+            await page.setUserAgent(
+                'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36'
+            );
+
+            await page.goto(safeUrl, {
+                waitUntil: strategy.waitUntil,
+                timeout: strategy.timeout,
+            });
+
+            await page.evaluate(() => window.stop()).catch(() => {});
+            break;
+        } catch (navError) {
+            lastError = navError;
+            const classified = classifyError(navError);
+            if (page) { await page.close().catch(() => {}); page = null; }
+            if (classified.code === 'BROWSER_CRASHED') await resetBrowserInstance();
+            if (!classified.retryable) {
+                return { success: false, error: classified.message, errorCode: classified.code, retryable: false };
+            }
+            if (i === NAV_STRATEGIES.length - 1) {
+                return {
+                    success: false,
+                    error: `Failed to load the page after ${NAV_STRATEGIES.length} attempts. ${classified.message}`,
+                    errorCode: classified.code,
+                    retryable: false,
+                };
+            }
+        }
+    }
+
+    try {
+        const parsedBase = new URL(safeUrl);
+        const baseOrigin = parsedBase.origin;
+
+        const hrefs = await page.$$eval('a[href]', (anchors) =>
+            anchors.map((a) => a.href).filter(Boolean)
+        );
+
+        await page.close();
+
+        // Filter to same-origin only, de-duplicate, exclude the base URL itself
+        const seen = new Set();
+        const routes = [];
+
+        for (const href of hrefs) {
+            try {
+                const parsed = new URL(href);
+                if (parsed.origin !== baseOrigin) continue;
+
+                // Normalize: remove fragment, trailing slash
+                parsed.hash = '';
+                const fullUrl = parsed.href.replace(/\/$/, '') || baseOrigin;
+                const path = parsed.pathname.replace(/\/$/, '') || '/';
+
+                // Skip the exact base URL path, file extensions, and anchors that go nowhere new
+                if (seen.has(fullUrl)) continue;
+                if (/\.(pdf|zip|png|jpg|jpeg|gif|svg|ico|css|js|woff|woff2|ttf|eot|map)$/i.test(path)) continue;
+
+                seen.add(fullUrl);
+                routes.push({
+                    path,
+                    label: path === '/' ? 'Home' : path.split('/').filter(Boolean).join(' / '),
+                    fullUrl,
+                });
+            } catch {
+                // Ignore unparseable hrefs
+            }
+        }
+
+        // Sort alphabetically by path
+        routes.sort((a, b) => a.path.localeCompare(b.path));
+
+        console.log(`[discoverRoutes] Found ${routes.length} unique internal routes.`);
+        return { success: true, routes };
+
+    } catch (err) {
+        if (page) await page.close().catch(() => {});
+        console.error('[discoverRoutes] Extraction error:', err.message);
+        return { success: false, error: `Route discovery failed: ${err.message}`, errorCode: 'DISCOVERY_ERROR' };
     }
 };
 
@@ -539,11 +731,47 @@ export const crawlPage = async (url) => {
             console.warn('[crawlPage] Screenshot capture failed — continuing without it.');
         }
 
+        // Extract internal links for route discovery before closing the page
+        const hrefs = await page.$$eval('a[href]', (anchors) =>
+            anchors.map((a) => a.href).filter(Boolean)
+        ).catch(() => []);
+
         await page.close();
+
+        // Process and normalize discovered routes (same-origin, unique, exclude base URL itself)
+        const parsedBase = new URL(safeUrl);
+        const baseOrigin = parsedBase.origin;
+        const seen = new Set();
+        const routes = [];
+
+        for (const href of hrefs) {
+            try {
+                const parsed = new URL(href);
+                if (parsed.origin !== baseOrigin) continue;
+
+                parsed.hash = '';
+                const fullUrl = parsed.href.replace(/\/$/, '') || baseOrigin;
+                const path = parsed.pathname.replace(/\/$/, '') || '/';
+
+                if (seen.has(fullUrl)) continue;
+                if (/\.(pdf|zip|png|jpg|jpeg|gif|svg|ico|css|js|woff|woff2|ttf|eot|map)$/i.test(path)) continue;
+
+                seen.add(fullUrl);
+                routes.push({
+                    path,
+                    label: path === '/' ? 'Home' : path.split('/').filter(Boolean).join(' / '),
+                    fullUrl,
+                });
+            } catch {
+                // Ignore invalid hrefs
+            }
+        }
+        routes.sort((a, b) => a.path.localeCompare(b.path));
 
         const crawlData = {
             url: safeUrl,
             timestamp: new Date().toISOString(),
+            discoveredRoutes: routes,
             pages: [
                 {
                     page_id: `page_${timestamp}`,
@@ -558,7 +786,7 @@ export const crawlPage = async (url) => {
             ]
         };
 
-        console.log(`[crawlPage] Done. Extracted ${elements.length} elements from "${title}".`);
+        console.log(`[crawlPage] Done. Extracted ${elements.length} elements from "${title}". Discovered ${routes.length} routes.`);
         return { success: true, data: crawlData };
 
     } catch (extractError) {
@@ -660,14 +888,15 @@ export const scanForDarkPatterns = async (crawlData) => {
 
 // ─── Tool 3: crawlAndScan (combined) ─────────────────────────────────────────
 /**
- * Convenience tool: crawls a URL and analyzes it for dark patterns.
+ * Convenience tool: crawls one or more URLs and analyzes them for dark patterns.
  *
  * Pipeline:
- *  1. crawlPage          — Puppeteer scrapes DOM elements + screenshot
+ *  1. crawlPage (×N)     — Puppeteer scrapes DOM elements + screenshot for each URL
  *  2. scanForDarkPatterns — ML microservice (primary) — DOM element-based detection
  *  3. geminiAnalyzeScreenshot — Gemini Vision (fallback) — screenshot-based detection
  *
- * @param {string} url - The URL to audit.
+ * @param {string} url           - The base URL to audit.
+ * @param {string[]} [routes=[]] - Additional route full-URLs to also crawl and include.
  * @returns {Promise<{
  *   success: boolean,
  *   scan?: string,   // JSON-stringified Roadmap
@@ -675,7 +904,8 @@ export const scanForDarkPatterns = async (crawlData) => {
  *   errorCode?: string
  * }>}
  */
-export const crawlAndScan = async (url) => {
+export const crawlAndScan = async (url, routes = [], appType = null) => {
+    // ── Step 1: Crawl base URL ───────────────────────────────────────────────
     const crawlResult = await crawlPage(url);
 
     if (!crawlResult.success) {
@@ -686,20 +916,41 @@ export const crawlAndScan = async (url) => {
         };
     }
 
-    const pageData      = crawlResult.data.pages[0];
-    const screenshotUrl = pageData?.screenshots?.full_page || null;
-    const elements      = pageData?.elements || [];
+    // Aggregate all pages (base + additional routes)
+    const allPages = [...crawlResult.data.pages];
+    let firstPageScreenshot = crawlResult.data.pages[0]?.screenshots?.full_page || null;
+    let firstPageElements   = crawlResult.data.pages[0]?.elements || [];
+
+    // ── Step 1b: Crawl additional routes ────────────────────────────────────
+    if (routes && routes.length > 0) {
+        console.log(`[crawlAndScan] Crawling ${routes.length} additional route(s)...`);
+        for (const routeUrl of routes) {
+            const routeResult = await crawlPage(routeUrl);
+            if (routeResult.success && routeResult.data.pages.length > 0) {
+                allPages.push(...routeResult.data.pages);
+                console.log(`[crawlAndScan] Route crawled: ${routeUrl} (${routeResult.data.pages[0].elements.length} elements)`);
+            } else {
+                console.warn(`[crawlAndScan] Route crawl failed for ${routeUrl}: ${routeResult.error}`);
+            }
+        }
+    }
+
+    const combinedCrawlData = {
+        ...crawlResult.data,
+        pages: allPages,
+    };
+
+    const totalElements = allPages.reduce((sum, p) => sum + (p.elements?.length || 0), 0);
+    console.log(`[crawlAndScan] Total pages: ${allPages.length}, total elements: ${totalElements}. Sending to ML...`);
 
     // ── Step 2: ML microservice (primary) ─────────────────────────────────────
-    // Strip the screenshot blob from the payload — ML only needs DOM elements.
-    // Sending 5-10 MB of base64 image data would bloat the request unnecessarily.
-    console.log(`[crawlAndScan] Sending ${elements.length} elements to ML microservice...`);
-
+    // Strip screenshot blobs — ML only needs DOM elements.
     const mlPayload = {
-        ...crawlResult.data,
-        pages: crawlResult.data.pages.map(p => ({
+        ...combinedCrawlData,
+        app_type: appType || 'General',
+        pages: combinedCrawlData.pages.map(p => ({
             ...p,
-            screenshots: {},   // strip the image blob — ML only needs DOM elements, not the screenshot
+            screenshots: {},   // strip image blobs — ML only needs DOM elements
         })),
     };
 
@@ -710,13 +961,17 @@ export const crawlAndScan = async (url) => {
         return {
             success: true,
             scan: JSON.stringify(mlResult.data),
+            mlPayload,
+            rawScanResult: mlResult.data,
+            source: 'ml',
+            discoveredRoutes: crawlResult.data.discoveredRoutes,
         };
     }
 
-    // ── Step 3: Gemini Vision fallback ────────────────────────────────────────
+    // ── Step 3: Gemini Vision fallback (uses first-page screenshot) ───────────
     console.warn(`[crawlAndScan] ML failed (${mlResult.errorCode}: ${mlResult.error}). Falling back to Gemini Vision...`);
 
-    if (!screenshotUrl) {
+    if (!firstPageScreenshot) {
         return {
             success: false,
             error: `ML analysis failed and no screenshot is available for Gemini fallback. ML error: ${mlResult.error}`,
@@ -724,7 +979,7 @@ export const crawlAndScan = async (url) => {
         };
     }
 
-    const scanResult = await geminiAnalyzeScreenshot(screenshotUrl, url, elements);
+    const scanResult = await geminiAnalyzeScreenshot(firstPageScreenshot, url, firstPageElements);
 
     if (!scanResult.success) {
         return {
@@ -738,5 +993,9 @@ export const crawlAndScan = async (url) => {
     return {
         success: true,
         scan: JSON.stringify(scanResult.data),
+        mlPayload,
+        rawScanResult: scanResult.data,
+        source: 'gemini',
+        discoveredRoutes: crawlResult.data.discoveredRoutes,
     };
 };

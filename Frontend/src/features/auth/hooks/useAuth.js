@@ -20,6 +20,7 @@ import {
   selectUser,
   selectIsAuthenticated,
   selectPendingEmail,
+  selectNeedsPasswordEmail,
   selectAuthLoading,
   selectAuthError,
 } from "../state/auth.slice";
@@ -46,7 +47,7 @@ export function useRegister() {
   return { register, loading, error, resetError };
 }
 
-// ─── useLogin ─────────────────────────────────────────────────────────────────
+// ─── useLogin ──────────────────────────────────────────────────────────────────────────────────
 export function useLogin() {
   const dispatch = useDispatch();
   const navigate = useNavigate();
@@ -59,6 +60,13 @@ export function useLogin() {
       await dispatch(getMeThunk()); // hydrate user object
       toast.success("Welcome back!");
       navigate("/dashboard", { replace: true });
+    } else if (result.payload?.needsPassword) {
+      // Google-auth user — redirect to set-password with email pre-filled
+      toast.info("Please set a password to log in with your email.");
+      navigate("/set-password", {
+        replace: true,
+        state: { email: result.payload.email, fromLogin: true },
+      });
     } else {
       toast.error(result.payload || "Login failed.");
     }

@@ -36,6 +36,14 @@ export const loginThunk = createAsyncThunk(
       const res = await loginApi(credentials);
       return res.data;
     } catch (err) {
+      // Special case: Google-auth user trying to log in with email — no password set
+      if (err?.response?.status === 403 && err?.response?.data?.needsPassword) {
+        return rejectWithValue({
+          needsPassword: true,
+          email: err.response.data.email,
+          message: err.message,
+        });
+      }
       return rejectWithValue(err.message);
     }
   }
@@ -130,6 +138,7 @@ export const setPasswordThunk = createAsyncThunk(
 const initialState = {
   user: null,
   isAuthenticated: localStorage.getItem("hasLoggedIn") === "true",
+  needsPasswordEmail: null,  // set when Google user tries email login
 
   // granular loading flags per operation
   loading: {
@@ -204,11 +213,18 @@ const authSlice = createSlice({
       .addCase(loginThunk.fulfilled, (state) => {
         state.loading.login = false;
         state.isAuthenticated = true;
+        state.needsPasswordEmail = null;
         localStorage.setItem("hasLoggedIn", "true");
       })
       .addCase(loginThunk.rejected, (state, action) => {
         state.loading.login = false;
-        state.error.login = action.payload;
+        // If the payload is an object with needsPassword, store the email
+        if (action.payload?.needsPassword) {
+          state.needsPasswordEmail = action.payload.email;
+          state.error.login = action.payload.message;
+        } else {
+          state.error.login = action.payload;
+        }
       });
 
     // ── Logout ────────────────────────────────────────────────────────────
@@ -328,6 +344,7 @@ export const { clearError, setPendingEmail, clearPendingEmail } =
 export const selectUser = (state) => state.auth.user;
 export const selectIsAuthenticated = (state) => state.auth.isAuthenticated;
 export const selectPendingEmail = (state) => state.auth.pendingEmail;
+export const selectNeedsPasswordEmail = (state) => state.auth.needsPasswordEmail;
 export const selectAuthLoading = (op) => (state) => state.auth.loading[op];
 export const selectAuthError = (op) => (state) => state.auth.error[op];
 
