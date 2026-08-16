@@ -371,6 +371,74 @@ const validateUrl = (url) => {
     }
 };
 
+// ─── Internal: Cross-Platform Chrome Detection ────────────────────────────────
+
+/**
+ * Returns the path to a Chrome/Chromium executable on the current OS.
+ * Priority order:
+ *   1. CHROME_EXECUTABLE_PATH env var (manual override)
+ *   2. OS-specific well-known install paths
+ *   3. undefined → Puppeteer uses its own bundled Chromium
+ */
+const resolveChromeExecutable = () => {
+    // 1. Explicit override from .env
+    const envPath = process.env.CHROME_EXECUTABLE_PATH;
+    if (envPath) {
+        if (fs.existsSync(envPath)) {
+            console.log(`[browser] Using Chrome from CHROME_EXECUTABLE_PATH: ${envPath}`);
+            return envPath;
+        }
+        console.warn(`[browser] CHROME_EXECUTABLE_PATH "${envPath}" not found — falling back to auto-detection.`);
+    }
+
+    // 2. OS-specific candidate paths
+    const { platform } = process;
+    let candidates = [];
+
+    if (platform === 'darwin') {
+        // macOS
+        candidates = [
+            '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
+            '/Applications/Google Chrome Canary.app/Contents/MacOS/Google Chrome Canary',
+            '/Applications/Chromium.app/Contents/MacOS/Chromium',
+        ];
+    } else if (platform === 'win32') {
+        // Windows — covers both 32-bit and 64-bit Program Files
+        const pf  = process.env['ProgramFiles']  || 'C:\\Program Files';
+        const pf86 = process.env['ProgramFiles(x86)'] || 'C:\\Program Files (x86)';
+        const localAppData = process.env['LOCALAPPDATA'] || '';
+        candidates = [
+            `${pf}\\Google\\Chrome\\Application\\chrome.exe`,
+            `${pf86}\\Google\\Chrome\\Application\\chrome.exe`,
+            `${localAppData}\\Google\\Chrome\\Application\\chrome.exe`,
+            `${pf}\\Google\\Chrome Beta\\Application\\chrome.exe`,
+            `${pf86}\\Google\\Chrome Beta\\Application\\chrome.exe`,
+            `${pf}\\Chromium\\Application\\chrome.exe`,
+            `${pf86}\\Chromium\\Application\\chrome.exe`,
+        ];
+    } else {
+        // Linux / other POSIX systems
+        candidates = [
+            '/usr/bin/google-chrome',
+            '/usr/bin/google-chrome-stable',
+            '/usr/bin/chromium-browser',
+            '/usr/bin/chromium',
+            '/snap/bin/chromium',
+        ];
+    }
+
+    for (const candidate of candidates) {
+        if (fs.existsSync(candidate)) {
+            console.log(`[browser] Auto-detected Chrome at: ${candidate}`);
+            return candidate;
+        }
+    }
+
+    // 3. Fall back to Puppeteer's bundled Chromium
+    console.log('[browser] No system Chrome found — using Puppeteer bundled Chromium.');
+    return undefined;
+};
+
 // ─── Internal: Shared Browser Instance ───────────────────────────────────────
 
 const getBrowserInstance = async () => {
@@ -388,9 +456,11 @@ const getBrowserInstance = async () => {
     }
 
     if (!browserInstance) {
+        const chromePath = resolveChromeExecutable();
+
         browserInstance = await puppeteer.launch({
             headless: true,
-            executablePath: process.env.CHROME_EXECUTABLE_PATH || undefined,
+            ...(chromePath ? { executablePath: chromePath } : {}),
             args: [
                 '--no-sandbox',
                 '--disable-setuid-sandbox',
